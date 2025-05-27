@@ -1,0 +1,39 @@
+drop_into_debugger_on_error: False
+device: "mps"
+
+data:
+  directories:
+    - "/Users/davidschneider/data/image/comics/ao"
+  max_mb: 100   # debuggin, total size of all files, fast runs
+
+dataset:
+  train_ratio: 0.9
+  batch_size: 10
+  crop_size: 120 # 240
+  shuffle: True
+
+models:
+  autoencoder:
+    model_dim: 448
+    depth: 4
+    num_heads: 4
+    ff_hidden_dim: 1024
+    freq_base: 10000
+  
+optim:
+  name: "AdamW"
+  learning_rate: 0.0005
+  adam_args:
+    betas: [0.9, 0.98]
+    eps: 1.e-8
+    weight_decay: 0.01
+
+train:
+  num_epochs: 20
+  max_steps: 0
+  max_grad_norm: 1.0
+  logdir: "logs/{timestamp}"
+  savedir: "saved_models/{timestamp}"
+  save: True
+  save_every_epoch: True
+  

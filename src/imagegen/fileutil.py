@@ -3,7 +3,9 @@ import random
 from time import sleep
 from typing import Iterable, Iterator, Tuple
 from PIL import Image
+from IPython.display import HTML
 from IPython.display import display, clear_output
+import matplotlib.pyplot as plt
 
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -40,8 +42,61 @@ def iter_images(
             print(f"⚠️  Skipping {img_path.name}: {e}")
 
 
+def scale_image(filename: str, resolutions=(64, 32)):
+    # Load image
+    img = Image.open(filename)
+
+    # Save full-resolution copy
+    original_path = Path("img_fullres.png")
+    img.save(original_path)
+
+    # HTML sections
+    html_blocks = [f"""
+        <div>
+            <p>Full Resolution</p>
+            <img src="{original_path}" style="image-rendering: pixelated;">
+        </div>
+    """]
+
+    # Downsample and save at each resolution
+    for res in resolutions:
+        img_small = img.resize((res, res), Image.BICUBIC)
+        out_path = Path(f"img_{res}.png")
+        img_small.save(out_path)
+        html_blocks.append(f"""
+            <div>
+                <p>Downsampled ({res}×{res})</p>
+                <img src="{out_path}" style="image-rendering: pixelated; width:{res}px; height:{res}px;">
+            </div>
+        """)
+
+    # Display all blocks
+    display(HTML(f"""
+        <div style="display: flex; gap: 20px;">
+            {''.join(html_blocks)}
+        </div>
+    """))
+
+
+def display_image_grid(folder: str | Path, nr: int = 2, nc: int = 6, width=2, shuffle=True):
+    images = []
+    for _, img in iter_images(folder, shuffle=shuffle):
+        images.append(img)
+        if len(images) > nr * nc:
+            break
+
+    fig, axs = plt.subplots(nr, nc, figsize=(nc * width, nr * width), squeeze=False)
+    for row in axs:
+        for ax in row:
+            ax.imshow(images.pop(0))
+            ax.axis("off")
+
+    plt.tight_layout()
+    plt.show()
+
+
 # ────────────────────────────────────────────────────────────────────────────────
-# 2. Slideshow helper ─ displays each image then waits *delay* second# ────────────────────────────────────────────────────────────────────────────────
+# 2. Slideshow helper ─ displays each image then waits *delay* second#
 def preview_slideshow(
     folder: str | Path,
     delay: float = 2.0,

@@ -1,11 +1,8 @@
-drop_into_debugger_on_error: False
-device: "mps"
-
 data:
   directories:
-    - "/Users/davidschneider/data/image/comics/ao"
-  max_mb: 100   # debuggin, total size of all files, fast runs
-
+    - "/Users/davidschneider/data/image/celeba/img_align_celeba_sample"
+preprocess:
+  
 dataset:
   train_ratio: 0.9
   batch_size: 10

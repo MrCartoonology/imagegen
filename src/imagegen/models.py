@@ -12,18 +12,10 @@ def count_parameters(model):
     return total_params, trainable_params, total_mb
 
 
-def create_autoencoder(res: ImgRunTracker) -> nn.Module:
-    cfg = res.cfg
-    device = get_device(device=cfg["device"])
-    ae = None
-    print(model)
-    total, trainable, size_mb = count_parameters(model)
-    print(f"  Total params:     {total:,}")
-    print(f"  Trainable params: {trainable:,}")
-    print(f"  Model size:       {size_mb:.2f} MB")
-    return model
-
-
-class AutoEncoder(nn.Module):
-    def __init__(self, latent_dim):
+class DDPMUnet(nn.Module):
+    """unet for ddpm. """
+    def __init__(self, cfg: dict):
         super().__init__()
+
+    def forward(self, x):
+        return x

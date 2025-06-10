@@ -1,6 +1,7 @@
 import datetime
 import torch
-from typing import Iterator, Tuple
+import random
+import numpy as np
 
 
 def get_timestamp():
@@ -27,3 +28,15 @@ def get_device(device="auto"):
         else:
             return "cpu"
     return device
+
+
+def seed_everything(seed: int, device: str) -> None:
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if device.type == 'cuda':
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+

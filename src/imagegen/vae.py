@@ -20,13 +20,15 @@ class Encoder(nn.Module):
         x = self.L1(x)
         x = nn.LeakyReLU()(x)
         x = self.L2(x)
-        z_mu = x[:, 0:self.latent_dim]
-        z_logvar = x[:, self.latent_dim:]
+        z_mu = x[:, 0 : self.latent_dim]
+        z_logvar = x[:, self.latent_dim :]
         return z_mu, z_logvar
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim=20, width=218, height=178, channels=3, pixel_values=256):
+    def __init__(
+        self, latent_dim=20, width=218, height=178, channels=3, pixel_values=256
+    ):
         super().__init__()
         self.width = width
         self.height = height
@@ -36,7 +38,9 @@ class Decoder(nn.Module):
         self.pixel_values = pixel_values
 
         self.L1 = nn.Linear(in_features=self.latent_dim, out_features=256)
-        self.L2 = nn.Linear(in_features=256, out_features=pixel_values * self.output_dim)
+        self.L2 = nn.Linear(
+            in_features=256, out_features=pixel_values * self.output_dim
+        )
 
     def forward(self, z):
         z = self.L1(z)
@@ -46,19 +50,17 @@ class Decoder(nn.Module):
         return x_logits
 
 
-
-
 class VAE:
-    def __init__(self, W=218, H=178, C=3, dim_Z=20, num_pixel_values=256, device='mps'):
+    def __init__(self, W=218, H=178, C=3, dim_Z=20, num_pixel_values=256, device="mps"):
         dim_X = W * H * C
         dim_H = 256
-        
+
         self.encoder = nn.Sequential(
             nn.Linear(dim_X, dim_H),
             nn.LeakyReLU(),
             nn.Linear(dim_H, dim_H),
             nn.LeakyReLU(),
-            nn.Linear(dim_H, 2 * dim_Z)
+            nn.Linear(dim_H, 2 * dim_Z),
         ).to(device=device)
 
         self.decoder = nn.Sequential(
@@ -66,21 +68,20 @@ class VAE:
             nn.LeakyReLU(),
             nn.Linear(dim_H, dim_H),
             nn.LeakyReLU(),
-            nn.Linear(dim_H, dim_X * num_pixel_values)
+            nn.Linear(dim_H, dim_X * num_pixel_values),
         ).to(device=device)
-
-
-
 
 
 def run():
     import imagegen.data as data
-    
-#    dl = data.get_celeb_ds()
+
+    #    dl = data.get_celeb_ds()
     dl = data.get_digits_ds()
-    en, dec = get_encoder_decoder(dim_X=16, dim_H=4, dim_Z=2, num_pixel_values=16, device='mps'))
+    en, dec = get_encoder_decoder(
+        dim_X=16, dim_H=4, dim_Z=2, num_pixel_values=16, device="mps"
+    )
     for x in dl:
-        x = x.to('mps')
+        x = x.to("mps")
         z_mu, z_logvar = en(x)
         var = torch.exp(z_logvar)
         eps = torch.randn_like(var)
@@ -89,5 +90,6 @@ def run():
         x_logits = dec(z_sample)
         break
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run()

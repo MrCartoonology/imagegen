@@ -1,142 +1,53 @@
 import os
+import random
 import shutil
 from tqdm import tqdm
 from typing import List, Tuple
 
 import numpy as np
-from sklearn.datasets import load_digits
-from torch.utils.data import Dataset, DataLoader
+from PIL import Image
 
-import random
+import torch
+from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader, random_split
-from PIL import Image
-import tqdm
-from imagegen.setup import ImgRunTracker
 
 
-def get_num_channels(mode: str) -> int:
-    channels = {
-        "1": 1,       # (grayscale)
-        "L": 1,       # (grayscale)
-        "RGB": 3,
-        "RGBA": 4,
-        "CMYK": 4,
-        "YCbCr": 3,
-    }
-
-    if mode not in channels:
-        raise ValueError(f"Mode {mode} not known. Known modes are {channels.keys()}")
-    
-    return channels[mode]
-
-
-class Digits(Dataset):
-    """Scikit-Learn Digits dataset."""
-
-    def __init__(self, mode='train', transforms=None):
-        digits = load_digits()
-        if mode == 'train':
-            self.data = digits.data[:1000].astype(np.float32)
-        elif mode == 'val':
-            self.data = digits.data[1000:1350].astype(np.float32)
-        else:
-            self.data = digits.data[1350:].astype(np.float32)
-
-        self.transforms = transforms
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        sample = self.data[idx]
-        if self.transforms:
-            sample = self.transforms(sample)
-        return sample
+def preprocess(cfg: dict, verbose=False):
+    if verbose:
+        print("-------- PREPROCESS/RESIZE IMAGES ----------")
+    input_dir = cfg["raw_data_dir"]
+    output_dir = cfg["resized_dir"]
+    if cfg["reprocess"] or not os.path.exists(output_dir):
+        resize_and_save(
+            input_dir=input_dir,
+            output_dir=output_dir,
+            num_files=cfg["num_files"],
+            res=tuple(cfg["resize"]),
+            train_perc=cfg["train_perc"],
+        )
+    else:
+        if verbose:
+            print("preprocessing already done.")
 
 
-def get_files(directories: List[str], max_mb: float) -> List[str]:
+def get_files(directories: List[str]) -> List[str]:
     all_files = []
     for directory in directories:
         for root, _, files in os.walk(directory):
             all_files.extend([os.path.join(root, f) for f in files])
     random.shuffle(all_files)
-    cumsum_mb = np.cumsum([os.path.getsize(fname) / 1e6 for fname in all_files])
-    use_files = all_files[0:np.sum(cumsum_mb <= max_mb)]
-    if len(use_files) < len(all_files):
-        print(f"Discarding {len(all_files) - len(use_files)} to stay under {max_mb} MB data")
-    return use_files
+    return all_files
 
 
-class CroppedImageDataset(Dataset):
-    def __init__(self, files, crop_size=240):
-        self.files = files
-        self.crop_size = crop_size
-        self.transform = T.Compose([
-            T.RandomCrop(crop_size),          # data augmentation
-            T.ToTensor(),                     # (0,1)
-        ])
-
-    def __len__(self):
-        return len(self.files)
-
-    def __getitem__(self, idx):
-        path = self.files[idx]
-        img = Image.open(path).convert("RGB")
-        return self.transform(img)
-
-
-class ImageDataset(Dataset):
-    def __init__(self, files, zero_centered=False):
-        self.files = files
-        self.zero_centered = zero_centered
-        if zero_centered:
-            self.transform = T.Compose([
-                T.ToTensor(),
-                T.Lambda(lambda x: (x - 0.5) * 2),
-            ])
-        else:
-            self.transform = T.ToTensor()
-
-        with Image.open(files[0]) as img:
-            self.raw_img_size = img.size
-            self.num_ch = get_num_channels(mode=img.mode)
-
-    def __len__(self):
-        return len(self.files)
-
-    def __getitem__(self, idx):
-        path = self.files[idx]
-        img = Image.open(path).convert("RGB")
-        return self.transform(img)
-
-
-def get_digits_ds():
-    digits = Digits()
-    return DataLoader(dataset=digits, batch_size=5, shuffle=True)
-
-
-def get_celeb_ds(folders, max_mb=100, batch_size=5) -> DataLoader:
-    files = get_files(directories=folders, max_mb=max_mb)    
-    ds = ImageDataset(files=files)
-    return DataLoader(dataset=ds, batch_size=batch_size, shuffle=True)
-
-    
-def get_datasets(res: ImgRunTracker) -> DataLoader:
-    files = get_files(**res.cfg['data'])
-    train_n = min(len(files), int(round(len(files) * res.cfg['dataset']['train_ratio'])))
-    train_files = files[0:train_n]
-    val_files = files[train_n:]
-    crop_size = res.cfg['dataset']['crop_size']
-    return dict(train=CroppedImageDataset(files=train_files, crop_size=crop_size),
-                val=CroppedImageDataset(files=val_files, crop_size=crop_size))
-
-
-def resize_and_save(input_dir: str, output_dir: str, num_files=10000, res: Tuple[int, int] = (64, 64), train_perc=0.8) -> None:
-    import shutil
-    from tqdm import tqdm
-
-    files = get_files(directories=[input_dir], max_mb=9e99)
+def resize_and_save(
+    input_dir: str,
+    output_dir: str,
+    num_files=10000,
+    res: Tuple[int, int] = (64, 64),
+    train_perc=0.8,
+) -> None:
+    files = get_files(directories=[input_dir])
     random.shuffle(files)
     files = files[0:num_files]
     n_train = int(round(train_perc * len(files)))
@@ -153,3 +64,58 @@ def resize_and_save(input_dir: str, output_dir: str, num_files=10000, res: Tuple
             img = img.resize(size=res, resample=Image.BICUBIC)
             o_pth = os.path.join(output_dir, split, os.path.basename(fname))
             img.save(o_pth)
+
+
+class CachedImageDataset(Dataset):
+    def __init__(self, dir: str, limit_files: int = 0, verbose: bool = False):
+        self.files = get_files(directories=[dir])
+        if limit_files:
+            random.shuffle(self.files)
+            self.files = self.files[0:limit_files]
+            if verbose:
+                print(f"Limited files to {limit_files} from {dir}")
+        self.transform = T.Compose(
+            [
+                T.ToTensor(),  # (0,1)
+                T.Lambda(lambda x: (x - 0.5) * 2),
+            ]
+        )
+
+        # Read one image to get shape
+        sample_img = Image.open(self.files[0]).convert("RGB")
+        sample_tensor = self.transform(sample_img)
+        channels, height, width = sample_tensor.shape
+
+        # Preallocate storage
+        self.data = torch.empty(
+            (len(self.files), channels, height, width), dtype=sample_tensor.dtype
+        )
+
+        # Fill in the preallocated tensor
+        for i, path in enumerate(tqdm(self.files, desc="Caching images", ncols=100)):
+            img = Image.open(path).convert("RGB")
+            self.data[i] = self.transform(img)
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+
+def get_cached_image_datasets(verbose: bool, root_dir: str) -> Tuple[Dataset, Dataset]:
+    if verbose:
+        print("------ CACHING DATASETS -------")
+    train_ds = CachedImageDataset(dir=root_dir + "/train")
+    val_ds = CachedImageDataset(dir=root_dir + "/val")
+    return train_ds, val_ds
+
+
+def get_dataloaders(
+    verbose: bool, batch_size: int, train_ds: Dataset, val_ds: Dataset
+) -> Tuple[DataLoader, DataLoader]:
+    if verbose:
+        print(" -- Creating DataLoaders --")
+    train_dl = DataLoader(dataset=train_ds, batch_size=batch_size, shuffle=True)
+    val_dl = DataLoader(dataset=val_ds, batch_size=batch_size, shuffle=False)
+    return train_dl, val_dl

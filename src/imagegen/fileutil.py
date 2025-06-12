@@ -30,10 +30,10 @@ def iter_images(
     for pat in patterns:
         globber = folder.rglob if recursive else folder.glob
         paths.extend(list(globber(pat)))
-    
+
     if shuffle:
-        random.shuffle(paths)    
-    
+        random.shuffle(paths)
+
     for img_path in paths:
         try:
             with Image.open(img_path) as im:
@@ -51,34 +51,44 @@ def scale_image(filename: str, resolutions=(64, 32)):
     img.save(original_path)
 
     # HTML sections
-    html_blocks = [f"""
+    html_blocks = [
+        f"""
         <div>
             <p>Full Resolution</p>
             <img src="{original_path}" style="image-rendering: pixelated;">
         </div>
-    """]
+    """
+    ]
 
     # Downsample and save at each resolution
     for res in resolutions:
         img_small = img.resize((res, res), Image.BICUBIC)
         out_path = Path(f"img_{res}.png")
         img_small.save(out_path)
-        html_blocks.append(f"""
+        html_blocks.append(
+            f"""
             <div>
                 <p>Downsampled ({res}×{res})</p>
                 <img src="{out_path}" style="image-rendering: pixelated; width:{res}px; height:{res}px;">
             </div>
-        """)
+        """
+        )
 
     # Display all blocks
-    display(HTML(f"""
+    display(
+        HTML(
+            f"""
         <div style="display: flex; gap: 20px;">
             {''.join(html_blocks)}
         </div>
-    """))
+    """
+        )
+    )
 
 
-def display_image_grid(folder: str | Path, nr: int = 2, nc: int = 6, width=2, shuffle=True):
+def display_image_grid(
+    folder: str | Path, nr: int = 2, nc: int = 6, width=2, shuffle=True
+):
     images = []
     for _, img in iter_images(folder, shuffle=shuffle):
         images.append(img)
@@ -101,7 +111,7 @@ def preview_slideshow(
     folder: str | Path,
     delay: float = 2.0,
     lim: int = 0,
-    **iter_kw,   # forwarded to iter_images (patterns=…, recursive=…)
+    **iter_kw,  # forwarded to iter_images (patterns=…, recursive=…)
 ):
     """
     Show every image in *folder* inside a Jupyter notebook with a timed pause.

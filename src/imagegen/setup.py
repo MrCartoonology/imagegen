@@ -1,4 +1,5 @@
 import os
+from pprint import pprint
 import traceback
 from pathlib import Path
 import ipdb
@@ -10,12 +11,6 @@ from torch.utils.tensorboard import SummaryWriter
 from imagegen.utils import get_timestamp
 
 
-def debug_hook(type_, value, tb):
-    traceback.print_exception(type_, value, tb)
-    print("\n--- entering post-mortem debugger ---")
-    ipdb.post_mortem(tb)
-
-
 def load_config(path) -> dict:
     with open(path, "r") as f:
         cfg = yaml.safe_load(f)
@@ -23,7 +18,7 @@ def load_config(path) -> dict:
     return replace_root_in_dict(d=cfg, root_path=root_path)
 
 
-def find_root(project_name='imagegen') -> str:
+def find_root(project_name="imagegen") -> str:
     # Get absolute path to current file
     current_file = Path(__file__).resolve()
 
@@ -58,17 +53,33 @@ def safe_open(file_path, mode="w"):
     return open(path, mode)
 
 
-class RunTracker:
+class DenoisingDiffusionRunTracker:
     __slots__ = [
-        "cfg", "datasets", "model", "optimizer", "trainer", "timestamp",
-        "logdir", "savedir", "train_writer", "val_writer",
-        "train_losses", "val_losses"
+        "cfg",
+        "train_ds",
+        "val_ds",
+        "train_dl",
+        "val_dl",
+        "unet",
+        "optimizer",
+        "trainer",
+        "timestamp",
+        "logdir",
+        "savedir",
+        "train_writer",
+        "val_writer",
+        "train_losses",
+        "val_losses",
     ]
 
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg_fname: str):
+        cfg = load_config(path=cfg_fname)
         self.cfg = cfg
-        self.datasets = None
-        self.model = None
+        self.train_ds = None
+        self.val_ds = None
+        self.train_dl = None
+        self.val_dl = None
+        self.unet = None
         self.optimizer = None
         self.trainer = None
         self.timestamp = None
@@ -79,18 +90,14 @@ class RunTracker:
         self.train_losses = []
         self.val_losses = []
 
-
-class ImgRunTracker(RunTracker):
-    __slots__ = []
-
-    def __init__(self, cfg_fname: str):
-        cfg = load_config(path=cfg_fname)
-        super().__init__(cfg=cfg)
+        if self.cfg["verbose"]:
+            print("--- CONFIG --")
+            pprint(self.cfg)
 
 
-def save_model_and_meta(res: RunTracker, epoch: int = 0) -> str:
-    cfg = res.cfg['train']
-    if not cfg['save']:
+def save_model_and_meta(res: DenoisingDiffusionRunTracker, epoch: int = 0) -> str:
+    cfg = res.cfg["train"]
+    if not cfg["save"]:
         return ""
 
     savedir = res.savedir
@@ -110,33 +117,40 @@ def save_model_and_meta(res: RunTracker, epoch: int = 0) -> str:
     )
     for split, dl in res.dataloaders.items():
         meta_dict[split] = dict(
-            files=dl['files'],
-            mb=dl['mb'],
-            n_steps=len(dl['dataloader'])
+            files=dl["files"], mb=dl["mb"], n_steps=len(dl["dataloader"])
         )
     meta_fname = os.path.join(savedir, "meta.yaml")
     with open(meta_fname, "w") as f:
         yaml.dump(meta_dict, f, sort_keys=False, default_flow_style=False, indent=2)
     print(f"Saved meta to {meta_fname}")
 
-    checkpoint_pth = os.path.join(savedir, f'model_epoch{epoch:02d}.pt')
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': res.model.state_dict(),
-        'optimizer_state_dict': res.optimizer.state_dict(),
-    }, checkpoint_pth)
+    checkpoint_pth = os.path.join(savedir, f"model_epoch{epoch:02d}.pt")
+    torch.save(
+        {
+            "epoch": epoch,
+            "model_state_dict": res.model.state_dict(),
+            "optimizer_state_dict": res.optimizer.state_dict(),
+        },
+        checkpoint_pth,
+    )
     print(f"Saved model to {checkpoint_pth}")
 
 
-def setup_training(res: RunTracker) -> RunTracker:
+def setup_training(cfg: dict) -> dict:
     # Get timestamp and create log directory
-    res.timestamp = get_timestamp()
-    res.logdir = res.cfg["train"]["logdir"].format(timestamp=res.timestamp)
-    res.savedir = res.cfg["train"]["savedir"].format(timestamp=res.timestamp)
-    os.makedirs(res.logdir, exist_ok=True)
-    os.makedirs(res.savedir, exist_ok=True)
-    res.train_writer = SummaryWriter(res.logdir + "/train")
-    res.val_writer = SummaryWriter(res.logdir + "/val")
+    timestamp = get_timestamp()
+    res = dict(
+        logdir=cfg["logdir"].format(timestamp=timestamp),
+        savedir=cfg["savedir"].format(timestamp=timestamp),
+    )
+    os.makedirs(res["logdir"], exist_ok=True)
+    os.makedirs(res["savedir"], exist_ok=True)
+    res.update(
+        dict(
+            train_writer=SummaryWriter(res["logdir"] + "/train"),
+            val_writer=SummaryWriter(res["logdir"] + "/val"),
+        )
+    )
     return res
 
 

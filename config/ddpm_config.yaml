@@ -3,14 +3,15 @@ device: "mps"
 data:
   raw_data_dir: "/Users/davidschneider/data/image/celeba/img_align_celeba"
   resized_dir: "/Users/davidschneider/data/image/celeba/img_align_celeba_resized"
-  reprocess: True
-  num_files: 62500   # 80% of 62,500 is 50,000 - so this will give 50k training files
+  reprocess: False
+  num_files: 200000   # 80% of 62,500 is 50,000 - so this will give 50k training files
+                      # 90% of 111,111 is 100k
 #  num_files: 100      # make small for debugging
   resize: 
     - 64
     - 64
-  train_perc: 0.8
-  batch_size: 20
+  train_perc: 0.95
+  batch_size: 500
 
 optim:
   name: "AdamW"

@@ -59,17 +59,38 @@ class DDPMTrainer(nn.Module):
                 if tr_cfg["max_steps"] > 0 and step >= tr_cfg["max_steps"]:
                     print("max steps set - stopping early")
                     return train_res
+            val_loss = self.evaluate(mdl=unet, val_dl=val_dl)
+            val_writer.add_scalar("loss", val_loss.item(), step)
         return train_res
 
-    def train_step(self, x0, mdl, optimizer):
+    def evaluate(self, mdl, val_dl):
+        mdl.eval()
+        n = 0
+        loss = 0.0
+        with torch.no_grad():
+            for x0 in val_dl:
+                x0 = x0.to(self.cfg["device"])
+                pred_eps, eps, _, _ = self.predict_noise(x0=x0, mdl=mdl)
+                loss += nn.functional.mse_loss(pred_eps, eps)
+                n += 1
+        loss /= n
+        mdl.train()
+        return loss
+
+    def predict_noise(self, x0, mdl):
         batch_size = x0.size(0)
-        self.cfg["train"]
         t = torch.randint(0, self.TT, (batch_size,), device=x0.device)
         eps = torch.randn_like(x0, device=x0.device)
         alpha_bars_t = self.alpha_bars[t]
         x0_coeff = torch.sqrt(alpha_bars_t).view(batch_size, 1, 1, 1)
         eps_coeff = torch.sqrt(1.0 - alpha_bars_t).view(batch_size, 1, 1, 1)
-        pred_eps = mdl(x0_coeff * x0 + eps_coeff * eps, t)
+        mdl_input = x0_coeff * x0 + eps_coeff * eps
+        pred_eps = mdl(mdl_input, t)
+        return pred_eps, eps, t, mdl_input
+
+    def train_step(self, x0, mdl, optimizer):
+        mdl.train()
+        pred_eps, eps, _, _ = self.predict_noise(x0=x0, mdl=mdl)
         loss = nn.functional.mse_loss(pred_eps, eps)
         loss.backward()
         nn_utils.clip_grad_norm_(mdl.parameters(), self.cfg["train"]["max_grad_norm"])

@@ -1,10 +1,6 @@
 import math
-from typing import Tuple
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
-from imagegen.utils import get_device
 
 
 def count_parameters(model):

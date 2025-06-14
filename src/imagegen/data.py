@@ -4,13 +4,20 @@ import shutil
 from tqdm import tqdm
 from typing import List, Tuple
 
-import numpy as np
 from PIL import Image
 
 import torch
-from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as T
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader
+
+
+def get_files(directories: List[str]) -> List[str]:
+    all_files = []
+    for directory in directories:
+        for root, _, files in os.walk(directory):
+            all_files.extend([os.path.join(root, f) for f in files])
+    random.shuffle(all_files)
+    return all_files
 
 
 def preprocess(cfg: dict, verbose=False):
@@ -29,15 +36,6 @@ def preprocess(cfg: dict, verbose=False):
     else:
         if verbose:
             print("preprocessing already done.")
-
-
-def get_files(directories: List[str]) -> List[str]:
-    all_files = []
-    for directory in directories:
-        for root, _, files in os.walk(directory):
-            all_files.extend([os.path.join(root, f) for f in files])
-    random.shuffle(all_files)
-    return all_files
 
 
 def resize_and_save(

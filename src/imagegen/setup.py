@@ -1,8 +1,6 @@
 import os
 from pprint import pprint
-import traceback
 from pathlib import Path
-import ipdb
 import yaml
 import torch.optim as optim
 import torch
@@ -68,8 +66,6 @@ class DenoisingDiffusionRunTracker:
         "savedir",
         "train_writer",
         "val_writer",
-        "train_losses",
-        "val_losses",
     ]
 
     def __init__(self, cfg_fname: str):
@@ -87,15 +83,15 @@ class DenoisingDiffusionRunTracker:
         self.savedir = None
         self.train_writer = None
         self.val_writer = None
-        self.train_losses = []
-        self.val_losses = []
 
         if self.cfg["verbose"]:
             print("--- CONFIG --")
             pprint(self.cfg)
 
 
-def save_model_and_meta(cfg: dict, savedir: str, model: nn.Module, optimizer, epoch: int = 0) -> str:
+def save_model_and_meta(
+    cfg: dict, savedir: str, model: nn.Module, optimizer, epoch: int = 0
+) -> str:
     if not cfg["train"]["save"]:
         return ""
 

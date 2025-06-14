@@ -1,21 +1,17 @@
-import time
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.nn.utils as nn_utils
 
-# from tqdm.notebook import tqdm
 from tqdm import tqdm, trange
 from imagegen.setup import setup_training, setup_optim, save_model_and_meta
-import imagegen.utils as ig_utils
 
 
 class DDPMTrainer(nn.Module):
     def __init__(self, cfg: dict):
         super(DDPMTrainer, self).__init__()
         self.cfg = cfg
-        self.img_H, self.img_W = cfg['data']['resize']
+        self.img_H, self.img_W = cfg["data"]["resize"]
 
         noise_schedule_cfg = cfg["diffusion_noise_schedule"]
         beta_start = noise_schedule_cfg["beta_start"]
@@ -51,7 +47,18 @@ class DDPMTrainer(nn.Module):
         train_res = setup_training(cfg=tr_cfg)
         train_writer, val_writer = train_res["train_writer"], train_res["val_writer"]
 
-        epoch_save_interval = int(round(tr_cfg['epochs'] / tr_cfg['num_models_save'])) if tr_cfg['save'] else 0
+        epoch_save_interval = (
+            int(round(tr_cfg["epochs"] / tr_cfg["num_models_save"]))
+            if tr_cfg["save"]
+            else 0
+        )
+
+        def do_save(epoch, epoch_save_interval=epoch_save_interval):
+            first_or_last = (epoch == 0) or (epoch == tr_cfg["epochs"] - 1)
+            if first_or_last or not epoch_save_interval:
+                return False
+            return epoch % epoch_save_interval == 0
+
         step = 0
         for epoch in range(tr_cfg["epochs"]):
             for x in train_dl:
@@ -67,14 +74,26 @@ class DDPMTrainer(nn.Module):
                 if tr_cfg["max_steps"] > 0 and step >= tr_cfg["max_steps"]:
                     print("max steps set - stopping early")
                     return train_res
+
             val_loss = self.evaluate(mdl=unet, val_dl=val_dl)
             val_writer.add_scalar("loss", val_loss.item(), step)
-            if (epoch > 0) and (epoch < tr_cfg["epochs"] - 1) and epoch_save_interval and (epoch % epoch_save_interval == 0):
-                save_model_and_meta(cfg=self.cfg, savedir=train_res["savedir"], model=unet, optimizer=optimizer, epoch=epoch)
-#            self.sample(mdl=unet)
-        
-        if tr_cfg['save']:
-            save_model_and_meta(cfg=self.cfg, savedir=train_res["savedir"], model=unet, optimizer=optimizer, epoch=epoch)
+            if do_save(epoch=epoch, epoch_save_interval=epoch_save_interval):
+                save_model_and_meta(
+                    cfg=self.cfg,
+                    savedir=train_res["savedir"],
+                    model=unet,
+                    optimizer=optimizer,
+                    epoch=epoch,
+                )
+
+        if tr_cfg["save"]:
+            save_model_and_meta(
+                cfg=self.cfg,
+                savedir=train_res["savedir"],
+                model=unet,
+                optimizer=optimizer,
+                epoch=epoch,
+            )
 
         return train_res
 
@@ -112,12 +131,14 @@ class DDPMTrainer(nn.Module):
         optimizer.step()
         optimizer.zero_grad()
         return loss
-    
+
     def sample(self, mdl):
-        z0_T = torch.randn(size=(1 + self.TT, 3, self.img_H, self.img_W)).to(self.cfg['device'])
+        z0_T = torch.randn(size=(1 + self.TT, 3, self.img_H, self.img_W)).to(
+            self.cfg["device"]
+        )
         z0_T[0] = 0
         z0_T[1] = 0
-        x0_T = torch.empty_like(z0_T).to(self.cfg['device'])
+        x0_T = torch.empty_like(z0_T).to(self.cfg["device"])
         x0_T[self.TT] = z0_T[self.TT]
 
         pred_coeff = (1.0 - self.alphas) / torch.sqrt(1.0 - self.alpha_bars)
@@ -127,10 +148,9 @@ class DDPMTrainer(nn.Module):
         for t in trange(self.TT, 0, -1, desc="Sampling", ncols=100):
             z = z0_T[t - 1]
             xt = x0_T[t]
-            t_tensor = torch.tensor(t).view(size=(1,)).to(self.cfg['device'])
+            t_tensor = torch.tensor(t).view(size=(1,)).to(self.cfg["device"])
             eps_pred = mdl(x=xt, t=t_tensor)[0]
-            pair = (xt - pred_coeff[t] * eps_pred)
+            pair = xt - pred_coeff[t] * eps_pred
             x0_T[t - 1] = pair_coeff[t] * pair + sigma[t] * z
 
         return x0_T
-

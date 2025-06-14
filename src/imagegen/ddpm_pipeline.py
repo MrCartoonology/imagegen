@@ -1,4 +1,4 @@
-from imagegen.setup import find_root, DenoisingDiffusionRunTracker, setup_training
+from imagegen.setup import find_root, DenoisingDiffusionRunTracker
 import imagegen.data as data
 import imagegen.unet as unet
 import imagegen.train as train

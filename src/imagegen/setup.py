@@ -95,41 +95,22 @@ class DenoisingDiffusionRunTracker:
             pprint(self.cfg)
 
 
-def save_model_and_meta(res: DenoisingDiffusionRunTracker, epoch: int = 0) -> str:
-    cfg = res.cfg["train"]
-    if not cfg["save"]:
+def save_model_and_meta(cfg: dict, savedir: str, model: nn.Module, optimizer, epoch: int = 0) -> str:
+    if not cfg["train"]["save"]:
         return ""
 
-    savedir = res.savedir
-
-    assert savedir, "run tracker save dir not set"
+    assert savedir, "save dir not set"
 
     cfg_fname = os.path.join(savedir, "config.yaml")
     with open(cfg_fname, "w") as f:
-        yaml.dump(res.cfg, f, sort_keys=False, default_flow_style=False, indent=2)
+        yaml.dump(cfg, f, sort_keys=False, default_flow_style=False, indent=2)
 
-    meta_dict = dict(
-        logdir=res.logdir,
-        savedir=res.savedir,
-        train_losses=res.train_losses,
-        val_losses=res.val_losses,
-        prompts=res.prompts,
-    )
-    for split, dl in res.dataloaders.items():
-        meta_dict[split] = dict(
-            files=dl["files"], mb=dl["mb"], n_steps=len(dl["dataloader"])
-        )
-    meta_fname = os.path.join(savedir, "meta.yaml")
-    with open(meta_fname, "w") as f:
-        yaml.dump(meta_dict, f, sort_keys=False, default_flow_style=False, indent=2)
-    print(f"Saved meta to {meta_fname}")
-
-    checkpoint_pth = os.path.join(savedir, f"model_epoch{epoch:02d}.pt")
+    checkpoint_pth = os.path.join(savedir, f"model_epoch{epoch:05d}.pt")
     torch.save(
         {
             "epoch": epoch,
-            "model_state_dict": res.model.state_dict(),
-            "optimizer_state_dict": res.optimizer.state_dict(),
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
         },
         checkpoint_pth,
     )

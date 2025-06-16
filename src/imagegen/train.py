@@ -111,9 +111,10 @@ class DDPMTrainer(nn.Module):
         mdl.train()
         return loss
 
-    def predict_noise(self, x0, mdl):
+    def predict_noise(self, x0, mdl, t=None):
         batch_size = x0.size(0)
-        t = torch.randint(1, 1 + self.TT, (batch_size,), device=x0.device)
+        if t is None:
+            t = torch.randint(1, 1 + self.TT, (batch_size,), device=x0.device)            
         eps = torch.randn_like(x0, device=x0.device)
         alpha_bars_t = self.alpha_bars[t]
         x0_coeff = torch.sqrt(alpha_bars_t).view(batch_size, 1, 1, 1)
@@ -132,10 +133,12 @@ class DDPMTrainer(nn.Module):
         optimizer.zero_grad()
         return loss
 
-    def sample(self, mdl):
+    def sample(self, mdl, clip_noise: bool = False):
         z0_T = torch.randn(size=(1 + self.TT, 3, self.img_H, self.img_W)).to(
             self.cfg["device"]
         )
+        if clip_noise:
+            z0_T = torch.clamp(z0_T, -1.75, 1.75)
         z0_T[0] = 0
         z0_T[1] = 0
         x0_T = torch.empty_like(z0_T).to(self.cfg["device"])

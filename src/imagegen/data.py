@@ -101,19 +101,36 @@ class CachedImageDataset(Dataset):
         return self.data[idx]
 
 
-def get_cached_image_datasets(verbose: bool, root_dir: str) -> Tuple[Dataset, Dataset]:
+def get_cached_image_dataset(split: str, verbose: bool, root_dir: str) -> Dataset:
+    assert split in ["train", "val"], "split must be 'train' or 'val'"
     if verbose:
-        print("------ CACHING DATASETS -------")
-    train_ds = CachedImageDataset(dir=root_dir + "/train")
-    val_ds = CachedImageDataset(dir=root_dir + "/val")
+        print(f"------ CACHING DATASET {split} -------")
+    return CachedImageDataset(dir=root_dir + f"/{split}")
+
+
+def get_cached_image_datasets(verbose: bool, root_dir: str) -> Tuple[Dataset, Dataset]:
+    train_ds = get_cached_image_dataset(
+        split="train", verbose=verbose, root_dir=root_dir
+    )
+    val_ds = get_cached_image_dataset(split="val", verbose=verbose, root_dir=root_dir)
     return train_ds, val_ds
+
+
+def get_dataloader(
+    split: str, verbose: bool, batch_size: int, ds: Dataset
+) -> DataLoader:
+    if verbose:
+        print(f" -- Creating DataLoader {split} --")
+    return DataLoader(dataset=ds, batch_size=batch_size, shuffle=True)
 
 
 def get_dataloaders(
     verbose: bool, batch_size: int, train_ds: Dataset, val_ds: Dataset
 ) -> Tuple[DataLoader, DataLoader]:
-    if verbose:
-        print(" -- Creating DataLoaders --")
-    train_dl = DataLoader(dataset=train_ds, batch_size=batch_size, shuffle=True)
-    val_dl = DataLoader(dataset=val_ds, batch_size=batch_size, shuffle=False)
+    train_dl = get_dataloader(
+        split="train", verbose=verbose, batch_size=batch_size, ds=train_ds, shuffle=True
+    )
+    val_dl = get_dataloader(
+        split="val", verbose=verbose, batch_size=batch_size, ds=val_ds, shuffle=True
+    )
     return train_dl, val_dl

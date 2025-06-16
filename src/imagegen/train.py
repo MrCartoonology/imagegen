@@ -114,7 +114,7 @@ class DDPMTrainer(nn.Module):
     def predict_noise(self, x0, mdl, t=None):
         batch_size = x0.size(0)
         if t is None:
-            t = torch.randint(1, 1 + self.TT, (batch_size,), device=x0.device)            
+            t = torch.randint(1, 1 + self.TT, (batch_size,), device=x0.device)
         eps = torch.randn_like(x0, device=x0.device)
         alpha_bars_t = self.alpha_bars[t]
         x0_coeff = torch.sqrt(alpha_bars_t).view(batch_size, 1, 1, 1)
@@ -133,12 +133,18 @@ class DDPMTrainer(nn.Module):
         optimizer.zero_grad()
         return loss
 
-    def sample(self, mdl, clip_noise: bool = False):
+    def sample(
+        self,
+        mdl,
+        clip_noise: bool = False,
+        clip_pred: bool = False,
+        clip_val: float = 1.15,
+    ):
         z0_T = torch.randn(size=(1 + self.TT, 3, self.img_H, self.img_W)).to(
             self.cfg["device"]
         )
         if clip_noise:
-            z0_T = torch.clamp(z0_T, -1.75, 1.75)
+            z0_T = torch.clamp(z0_T, -clip_val, clip_val)
         z0_T[0] = 0
         z0_T[1] = 0
         x0_T = torch.empty_like(z0_T).to(self.cfg["device"])
@@ -153,6 +159,8 @@ class DDPMTrainer(nn.Module):
             xt = x0_T[t]
             t_tensor = torch.tensor(t).view(size=(1,)).to(self.cfg["device"])
             eps_pred = mdl(x=xt, t=t_tensor)[0]
+            if clip_pred:
+                eps_pred = torch.clamp(eps_pred, -clip_val, clip_val)
             pair = xt - pred_coeff[t] * eps_pred
             x0_T[t - 1] = pair_coeff[t] * pair + sigma[t] * z
 

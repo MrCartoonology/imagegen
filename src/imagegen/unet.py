@@ -8,7 +8,9 @@ def count_parameters(model):
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total_bytes = sum(p.numel() * p.element_size() for p in model.parameters())
     total_mb = total_bytes / (1024**2)
-    return total_params, trainable_params, total_mb
+    return dict(
+        total_params=total_params, trainable_params=trainable_params, total_mb=total_mb
+    )
 
 
 class UNetBasicLayer(nn.Module):

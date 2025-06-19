@@ -5,6 +5,7 @@ import torch.nn.utils as nn_utils
 
 from tqdm import tqdm, trange
 from imagegen.setup import setup_training, setup_optim, save_model_and_meta
+from imagegen.ddpmhuggingface import cosine_beta_schedule
 
 
 class DDPMTrainer(nn.Module):
@@ -14,11 +15,13 @@ class DDPMTrainer(nn.Module):
         self.img_H, self.img_W = cfg["data"]["resize"]
 
         noise_schedule_cfg = cfg["diffusion_noise_schedule"]
-        beta_start = noise_schedule_cfg["beta_start"]
-        beta_end = noise_schedule_cfg["beta_end"]
         self.TT = noise_schedule_cfg["num_timesteps"]
-
-        betas = torch.linspace(beta_start, beta_end, self.TT)
+        if noise_schedule_cfg["algo"] == 'linear':
+            beta_start = noise_schedule_cfg["beta_start"]
+            beta_end = noise_schedule_cfg["beta_end"]
+            betas = torch.linspace(beta_start, beta_end, self.TT)
+        elif noise_schedule_cfg["algo"] == 'cosine':
+            betas = cosine_beta_schedule(timesteps=self.TT)
         alphas = 1.0 - betas
         alpha_bars = torch.cumprod(alphas, dim=0)
 
@@ -158,7 +161,7 @@ class DDPMTrainer(nn.Module):
             z = z0_T[t - 1]
             xt = x0_T[t]
             t_tensor = torch.tensor(t).view(size=(1,)).to(self.cfg["device"])
-            eps_pred = mdl(x=xt, t=t_tensor)[0]
+            eps_pred = mdl(xt, t_tensor)[0]
             if clip_pred:
                 eps_pred = torch.clamp(eps_pred, -clip_val, clip_val)
             pair = xt - pred_coeff[t] * eps_pred

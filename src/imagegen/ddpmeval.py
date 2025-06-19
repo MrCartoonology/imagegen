@@ -14,6 +14,7 @@ import imagegen.data as data
 from torch.utils.data import DataLoader
 from imagegen.train import DDPMTrainer
 from imagegen.unet import UNet
+from imagegen.ddpmhuggingface import Unet as UNetHF
 
 
 def get_tqdm():
@@ -200,7 +201,10 @@ def make_samples(
 
 
 def load_model(cfg: dict, saved_model: str):
-    mdl = unet.UNet()
+    if cfg['unet'] == 'huggingface':
+        mdl = UNetHF(dim=64)
+    else:
+        mdl = unet.UNet()
     state_dict = torch.load(saved_model, map_location=cfg["device"])
     mdl.load_state_dict(state_dict["model_state_dict"])
     mdl.eval()
@@ -261,14 +265,14 @@ def eval_stats_per_t(
 
 
 def plot_stats_per_t_loss(
-    t_stats: dict, figsize=(10,4), val_loss=0.0943
+        t_stats: dict, figsize=(10,4), val_loss=0.0943
 ):
     ts = sorted(t_stats["loss_t"].keys())
     y = [t_stats['loss_t'][t].mean() for t in ts]
     plt.figure(figsize=figsize)
-    plt.plot(ts, y, label='val loss per timestep')
+    plt.plot(ts, y, label='loss per timestep')
     if val_loss:
-        plt.plot([ts[0], ts[-1]], [val_loss, val_loss], color='r', linestyle='--', label='val loss')
+        plt.plot([ts[0], ts[-1]], [val_loss, val_loss], color='r', linestyle='--', label='loss')
     plt.title("Loss per t")
     plt.xlabel("t - timestep")
     plt.ylabel("mse loss")

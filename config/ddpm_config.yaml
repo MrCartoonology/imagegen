@@ -3,7 +3,7 @@ device: "mps"
 data:
   raw_data_dir: "/Users/davidschneider/data/image/celeba/img_align_celeba"
   resized_dir: "/Users/davidschneider/data/image/celeba/img_align_celeba_resized"
-  reprocess: True
+  reprocess: False
   num_files: 200000   # 80% of 62,500 is 50,000 - so this will give 50k training files
                       # 90% of 111,111 is 100k
 #  num_files: 100      # make small for debugging
@@ -11,27 +11,28 @@ data:
     - 64
     - 64
   train_perc: 0.95
-  batch_size: 1000
+  batch_size: 400
 
 optim:
-  name: "AdamW"
-  learning_rate: 0.0005
+  name: "Adam"
+  learning_rate: 0.001
   adam_args:
     betas: [0.9, 0.98]
     eps: 1.e-8
     weight_decay: 0.01
-
+unet: huggingface
 diffusion_noise_schedule:
-  num_timesteps: 1000
+  num_timesteps: 200
+  algo: cosine
   beta_start: 0.0001
   beta_end: 0.02
 
 train:
-  epochs: 1000
+  epochs: 10
   max_steps: 0
   max_grad_norm: 1.0
   logdir: "logs/{timestamp}"
   savedir: "saved_models/{timestamp}"
   save: True
-  num_models_save: 20
+  num_models_save: 10
 

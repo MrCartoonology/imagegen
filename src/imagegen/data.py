@@ -117,11 +117,11 @@ def get_cached_image_datasets(verbose: bool, root_dir: str) -> Tuple[Dataset, Da
 
 
 def get_dataloader(
-    split: str, verbose: bool, batch_size: int, ds: Dataset
+    split: str, verbose: bool, batch_size: int, ds: Dataset, shuffle: bool = True
 ) -> DataLoader:
     if verbose:
         print(f" -- Creating DataLoader {split} --")
-    return DataLoader(dataset=ds, batch_size=batch_size, shuffle=True)
+    return DataLoader(dataset=ds, batch_size=batch_size, shuffle=shuffle)
 
 
 def get_dataloaders(
@@ -130,6 +130,7 @@ def get_dataloaders(
     train_dl = get_dataloader(
         split="train", verbose=verbose, batch_size=batch_size, ds=train_ds, shuffle=True
     )
+
     val_dl = get_dataloader(
         split="val", verbose=verbose, batch_size=batch_size, ds=val_ds, shuffle=True
     )

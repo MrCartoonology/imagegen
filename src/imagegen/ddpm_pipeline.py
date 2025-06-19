@@ -1,6 +1,7 @@
 from imagegen.setup import find_root, DenoisingDiffusionRunTracker
 import imagegen.data as data
 import imagegen.unet as unet
+from imagegen.ddpmhuggingface import Unet as HFUnet
 import imagegen.train as train
 
 
@@ -22,7 +23,10 @@ def run(cfg_fname: str = CFG_FNAME) -> DenoisingDiffusionRunTracker:
     )
     if res.cfg["verbose"]:
         print("------- Creating UNET -------")
-    res.unet = unet.UNet()
+    if res.cfg['unet'] == 'huggingface':
+        res.unet = HFUnet(dim=64)
+    else:
+        res.unet = unet.UNet()
     res.trainer = train.DDPMTrainer(cfg=res.cfg)
     training_res = res.trainer.train(
         train_dl=res.train_dl,

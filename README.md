@@ -1,7 +1,13 @@
 # imagegen
 
 This repo supports the post [Image Generative AI - DDPM](https://mrcartoonology.github.io/jekyll/update/2025/06/24/image_gen_ai_ddpm.html). 
-It has not been cleaned up for general use but provides reference for the experiments reported on.
+It has not been cleaned up for general use but provides reference for the experiments reported on. 
+
+`main` branch is not used for the post - support is in the branches
+
+* `first_run` implement lightweight DDP from scratch, report on unexpected sampling behavior
+* `evalddpm` add diagnostic metrics to dig into what is happening
+* `fix_run` run Hugging Face code from notebooks 
 
 # first_run support
 
